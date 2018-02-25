@@ -11,7 +11,7 @@ from multiprocessing import Pool
 
 USAGE = """Usage:
 	python <script.py> {--help|-h}
-	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp] [--limit <snapshots>] <url>
+	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp] [--limit <snapshots>] [--dry] <url>
 
 Options:
 	--help, -h		Display this help message and exit
@@ -28,6 +28,8 @@ Options:
 
 	--limit, -l		Download at most <snapshots> snapshots
 
+	--dry, -d		List items to be downloaded without downloading them
+
 Example:
 	Use the following command:
 		python <script.py> --matchType prefix --from 2010 --to 201606 --limit 1000 example.org
@@ -37,24 +39,28 @@ For more information, see: https://github.com/internetarchive/wayback/blob/maste
 
 THREADS = 10
 
+def parse_timestamp(timestamp):
+	year = int(timestamp[:4])
+	month = int(timestamp[4:6])
+	day = int(timestamp[6:8])
+	hour = int(timestamp[8:10])
+	minute = int(timestamp[10:12])
+	second = int(timestamp[12:14])
+	return datetime(year, month, day, hour, minute, second)
+
 def write(response, filename, timestamp):
-	directory = os.path.dirname(filename)
-	if not os.path.exists(directory):
+	dirname, basename = os.path.split(filename)
+	basename = basename or "index.html"
+	if not os.path.exists(dirname):
 		try:
-			os.makedirs(directory)
+			os.makedirs(dirname)
 		except OSError as e:
 			if e.errno != errno.EEXIST:
 				return False
+	filename = os.path.join(dirname, basename)
 	with open(filename, "wb") as file:
-		year = int(timestamp[:4])
-		month = int(timestamp[4:6])
-		day = int(timestamp[6:8])
-		hour = int(timestamp[8:10])
-		minute = int(timestamp[10:12])
-		second = int(timestamp[12:14])
-		timestamp = datetime(year, month, day, hour, minute, second)
 		file.write(response.read())
-		os.utime(filename, (time.time(), time.mktime(timestamp.timetuple())))
+		os.utime(filename, (time.time(), time.mktime(parse_timestamp(timestamp).timetuple())))
 		return True
 	return False
 
@@ -78,7 +84,7 @@ def download(row):
 		if response is not None:
 			response.close()
 
-def download_all(**params):
+def list_rows(**params):
 	response = None
 	try:
 		response = urllib2.urlopen("http://web.archive.org/cdx/search/cdx?" + urllib.urlencode(params))
@@ -95,7 +101,17 @@ def download_all(**params):
 	unique = set()
 	rows = [unique.add(row[2]) or row for row in rows if row[2] not in unique]
 	duplicates = total - len(rows)
-	print "Downloading {} snapshot{}...{}".format(len(rows), "" if len(rows) == 1 else "s", " (removed {} duplicate{})".format(duplicates, "" if duplicates == 1 else "s") if duplicates else "")
+	return rows, duplicates
+
+def dry_run(**params):
+	rows, duplicates = list_rows(**params)
+	print "Found {} snapshot{}{}:".format(len(rows), "" if len(rows) == 1 else "s", " (removed {} duplicate{})".format(duplicates, "" if duplicates == 1 else "s") if duplicates else "")
+	for row in rows:
+		print "{}: {}".format(parse_timestamp(row[1]).strftime("%Y-%m-%d %H:%M:%S"), row[2])
+
+def download_all(**params):
+	rows, duplicates = list_rows(**params)
+	print "Downloading {} snapshot{}{}...".format(len(rows), "" if len(rows) == 1 else "s", " (removed {} duplicate{})".format(duplicates, "" if duplicates == 1 else "s") if duplicates else "")
 	total = len(rows)
 	pool = Pool(THREADS)
 	while rows:
@@ -107,19 +123,25 @@ def download_all(**params):
 			else:
 				i += 1
 			count = total - len(rows)
-			print "\r{}/{} ({:.2f}%)".format(count, total, 100.0 * count / total),
+			print "\rProgress: {}/{} ({:.2f}%)".format(count, total, 100.0 * count / total),
 			# print "\r{}/{} ({:.2f}%), {} failed.".format(count, total, 100.0 * count / total, i),
 
 def parseargs(argv):
-	if not argv or "--help" in argv or "-h" in argv:
+	if not argv:
 		return None
+	
 	args = {
 		"matchType": ["--matchType", "-m"],
 		"from": ["--from", "-f"],
 		"to": ["--to", "-t"],
-		"limit": ["--limit", "-l"]
+		"limit": ["--limit", "-l"],
+	}
+	flags = {
+		"help": ["--help", "-h"],
+		"dry": ["--dry", "-d"]
 	}
 	params = {}
+
 	for arg, names in args.iteritems():
 		for name in names:
 			if name in argv:
@@ -127,18 +149,31 @@ def parseargs(argv):
 				argv.pop(index)
 				value = argv.pop(index)
 				params[arg] = value
+	
+	for flag, names in flags.iteritems():
+		for name in names:
+			if name in argv:
+				index = argv.index(name)
+				argv.pop(index)
+				params[flag] = True
+	
 	if len(argv) > 1:
 		return None
-	params["url"] = argv.pop()
+	if argv:
+		params["url"] = argv.pop()
 	return params
 
 def main():
 	params = parseargs(sys.argv[1:])
-	if params is None:
+	if params is None or "help" in params:
 		print USAGE.replace("<script.py>", sys.argv[0])
 		sys.exit(1)
 
-	download_all(**params)
+	if "dry" in params:
+		del params["dry"]
+		dry_run(**params)
+	else:
+		download_all(**params)
 	sys.exit(0)
 
 if __name__ == "__main__":
