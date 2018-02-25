@@ -1,6 +1,6 @@
 # wayback-downloader
-A simple downloader client for the Wayback Machine
-
+A simple downloader client for the Wayback Machine written in Python.
+```
 Usage:
 	python <script.py> {--help|-h}
 	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp] [--limit <snapshots>] [--dry] <url>
@@ -28,3 +28,4 @@ Example:
 	To download at most 1000 abarity pages under example.org between the year of 2010 and the month of June 2016 (inclusive).
 
 For more information, see: https://github.com/internetarchive/wayback/blob/master/wayback-cdx-server/README.md
+```
