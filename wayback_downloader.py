@@ -11,10 +11,12 @@ from multiprocessing import Pool
 
 USAGE = """Usage:
 	python <script.py> {--help|-h}
-	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp>] [--limit <snapshots>] [--dry] <url>
+	python <script.py> [--threads <threads>] [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp>] [--limit <snapshots>] [--dry] <url>
 
 Options:
 	--help, -h		Display this help message and exit
+
+	--threads, -T	Number of downloading threads (default: 10)
 
 	--matchType, -m	What results will be downloaded based on <url>
 		exact		Download results matching exactly <url>
@@ -54,7 +56,6 @@ def write(response, filename, timestamp):
 	else:
 		dirname, basename = os.path.split(filename)
 	if not os.path.exists(dirname):
-		print dirname
 		try:
 			os.makedirs(dirname)
 		except OSError as e:
@@ -112,11 +113,11 @@ def dry_run(**params):
 	for row in rows:
 		print "{}: {}".format(parse_timestamp(row[1]).strftime("%Y-%m-%d %H:%M:%S"), row[2])
 
-def download_all(**params):
+def download_all(threads, **params):
 	rows, duplicates = list_rows(**params)
 	print "Downloading {} snapshot{}{}...".format(len(rows), "" if len(rows) == 1 else "s", " (removed {} duplicate{})".format(duplicates, "" if duplicates == 1 else "s") if duplicates else "")
 	total = len(rows)
-	pool = Pool(THREADS)
+	pool = Pool(threads)
 	while rows:
 		i = 0
 		for success in pool.imap(download, rows):
@@ -134,6 +135,7 @@ def parseargs(argv):
 		return None
 	
 	args = {
+		"threads": ["--threads", "-T"],
 		"matchType": ["--matchType", "-m"],
 		"from": ["--from", "-f"],
 		"to": ["--to", "-t"],
@@ -172,11 +174,21 @@ def main():
 		print USAGE.replace("<script.py>", sys.argv[0])
 		sys.exit(1)
 
+	if "threads" in params:
+		threads = params.pop("threads")
+		try:
+			threads = int(threads)
+		except ValueError:
+			print "Invalid --threads option"
+			sys.exit(1)
+	else:
+		threads = THREADS
+
 	if "dry" in params:
 		del params["dry"]
 		dry_run(**params)
 	else:
-		download_all(**params)
+		download_all(threads, **params)
 	sys.exit(0)
 
 if __name__ == "__main__":

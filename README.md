@@ -3,10 +3,12 @@ A simple downloader client for the Wayback Machine written in Python.
 ```
 Usage:
 	python <script.py> {--help|-h}
-	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp>] [--limit <snapshots>] [--dry] <url>
+	python <script.py> [--threads <threads>] [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp>] [--limit <snapshots>] [--dry] <url>
 
 Options:
 	--help, -h		Display this help message and exit
+
+	--threads, -T	Number of downloading threads (default: 10)
 
 	--matchType, -m	What results will be downloaded based on <url>
 		exact		Download results matching exactly <url>
