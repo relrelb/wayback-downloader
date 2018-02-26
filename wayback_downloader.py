@@ -11,7 +11,7 @@ from multiprocessing import Pool
 
 USAGE = """Usage:
 	python <script.py> {--help|-h}
-	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp] [--limit <snapshots>] [--dry] <url>
+	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp>] [--limit <snapshots>] [--dry] <url>
 
 Options:
 	--help, -h		Display this help message and exit
@@ -49,9 +49,12 @@ def parse_timestamp(timestamp):
 	return datetime(year, month, day, hour, minute, second)
 
 def write(response, filename, timestamp):
-	dirname, basename = os.path.split(filename)
-	basename = basename or "index.html"
+	if os.path.isdir(filename):
+		dirname, basename = filename, "index.html"
+	else:
+		dirname, basename = os.path.split(filename)
 	if not os.path.exists(dirname):
+		print dirname
 		try:
 			os.makedirs(dirname)
 		except OSError as e:

@@ -3,7 +3,7 @@ A simple downloader client for the Wayback Machine written in Python.
 ```
 Usage:
 	python <script.py> {--help|-h}
-	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp] [--limit <snapshots>] [--dry] <url>
+	python <script.py> [--matchType {exact|prefix|host|domain}] [--from <timestamp>] [--to <timestamp>] [--limit <snapshots>] [--dry] <url>
 
 Options:
 	--help, -h		Display this help message and exit
